@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import CandidateForm, { CandidateFormValues } from "@/components/CandidateForm";
 import { LoadingState, ErrorState } from "@/components/States";
-import { apiRequest, ApiError } from "@/lib/api";
+import { apiRequest, apiUpload, ApiError } from "@/lib/api";
 import type { Candidate } from "@/types";
 
 export default function EditCandidatePage() {
@@ -33,7 +33,13 @@ export default function EditCandidatePage() {
   }, [load]);
 
   async function handleSubmit(values: CandidateFormValues) {
-    await apiRequest<Candidate>(`/candidates/${params.id}`, { method: "PATCH", body: values });
+    const { cv_file, ...body } = values;
+    await apiRequest<Candidate>(`/candidates/${params.id}`, { method: "PATCH", body });
+    if (cv_file) {
+      const formData = new FormData();
+      formData.append("file", cv_file);
+      await apiUpload<Candidate>(`/candidates/${params.id}/cv`, formData);
+    }
     router.push(`/candidates/${params.id}`);
   }
 

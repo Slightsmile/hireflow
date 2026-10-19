@@ -1,7 +1,9 @@
 import os
+import tempfile
 import uuid
 
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["UPLOAD_DIR"] = tempfile.mkdtemp(prefix="hireflow-test-uploads-")
 
 import pytest
 from fastapi.testclient import TestClient

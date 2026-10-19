@@ -10,6 +10,7 @@ export interface CandidateFormValues {
   cv_text: string;
   skills: string;
   experience_summary: string;
+  cv_file: File | null;
 }
 
 export default function CandidateForm({
@@ -28,6 +29,7 @@ export default function CandidateForm({
     cv_text: initial?.cv_text || "",
     skills: initial?.skills || "",
     experience_summary: initial?.experience_summary || "",
+    cv_file: null,
   });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -50,6 +52,10 @@ export default function CandidateForm({
     }
     if (!isValidEmail(values.email)) {
       setError("A valid email address is required.");
+      return;
+    }
+    if (values.cv_file && !values.cv_file.name.toLowerCase().endsWith(".pdf")) {
+      setError("The CV file must be a PDF.");
       return;
     }
 
@@ -92,6 +98,23 @@ export default function CandidateForm({
       <div>
         <label className="label">Experience Summary</label>
         <input className="input" value={values.experience_summary} onChange={(e) => update("experience_summary", e.target.value)} />
+      </div>
+
+      <div>
+        <label className="label">CV File (PDF)</label>
+        <input
+          type="file"
+          accept="application/pdf,.pdf"
+          className="input"
+          onChange={(e) => update("cv_file", e.target.files?.[0] || null)}
+        />
+        {initial?.cv_filename && !values.cv_file && (
+          <p className="mt-1 text-xs text-slate-500">Current file: {initial.cv_filename}</p>
+        )}
+        {values.cv_file && <p className="mt-1 text-xs text-slate-500">Selected: {values.cv_file.name}</p>}
+        <p className="mt-1 text-xs text-slate-400">
+          Uploading a PDF extracts its text to use for AI matching and is stored for download.
+        </p>
       </div>
 
       <div>

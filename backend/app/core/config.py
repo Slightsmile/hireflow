@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     cors_origins: str = "http://localhost:3000"
     environment: str = "development"
+    upload_dir: str = "uploads"
+    max_upload_mb: int = 10
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

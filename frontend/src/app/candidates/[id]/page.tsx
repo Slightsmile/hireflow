@@ -7,7 +7,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { LoadingState, ErrorState, EmptyState } from "@/components/States";
 import StatusBadge from "@/components/StatusBadge";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import { apiRequest, ApiError } from "@/lib/api";
+import { apiDownload, apiRequest, apiUpload, ApiError } from "@/lib/api";
 import type { Application, Candidate, PaginatedResponse } from "@/types";
 
 export default function CandidateDetailPage() {
@@ -19,6 +19,9 @@ export default function CandidateDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [cvError, setCvError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -48,6 +51,40 @@ export default function CandidateDetailPage() {
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to delete candidate.");
       setConfirmDelete(false);
+    }
+  }
+
+  async function uploadCv() {
+    if (!cvFile) return;
+    setUploading(true);
+    setCvError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", cvFile);
+      const updated = await apiUpload<Candidate>(`/candidates/${params.id}/cv`, formData);
+      setCandidate(updated);
+      setCvFile(null);
+    } catch (err) {
+      setCvError(err instanceof ApiError ? err.message : "Failed to upload CV.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function downloadCv() {
+    setCvError(null);
+    try {
+      const { blob, filename } = await apiDownload(`/candidates/${params.id}/cv`);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename || candidate?.cv_filename || "cv.pdf";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setCvError(err instanceof ApiError ? err.message : "Failed to download CV.");
     }
   }
 
@@ -93,6 +130,40 @@ export default function CandidateDetailPage() {
           <div className="mt-6 card">
             <h2 className="text-sm font-semibold text-slate-700">Skills</h2>
             <p className="mt-2 text-sm text-slate-600">{candidate.skills || "None specified"}</p>
+          </div>
+
+          <div className="mt-6 card">
+            <h2 className="text-sm font-semibold text-slate-700">CV File</h2>
+            {candidate.cv_filename ? (
+              <div className="mt-2 flex items-center gap-3">
+                <span className="text-sm text-slate-600">{candidate.cv_filename}</span>
+                <button className="btn-secondary" onClick={downloadCv}>
+                  Download CV
+                </button>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-slate-500">No CV file uploaded for this candidate.</p>
+            )}
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <input
+                type="file"
+                accept="application/pdf,.pdf"
+                className="input max-w-sm"
+                onChange={(e) => setCvFile(e.target.files?.[0] || null)}
+              />
+              <button className="btn-primary" disabled={!cvFile || uploading} onClick={uploadCv}>
+                {uploading ? "Uploading..." : candidate.cv_filename ? "Replace CV" : "Upload CV"}
+              </button>
+            </div>
+            {cvError && (
+              <div className="mt-3">
+                <ErrorState message={cvError} />
+              </div>
+            )}
+            <p className="mt-2 text-xs text-slate-400">
+              PDF only. Uploading extracts the text for AI matching and stores the original file.
+            </p>
           </div>
 
           <div className="mt-6 card">

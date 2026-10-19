@@ -59,9 +59,14 @@ function JobsPageContent() {
           <h1 className="text-2xl font-semibold text-slate-900">Jobs</h1>
           <p className="mt-1 text-sm text-slate-500">Manage job openings and track their status.</p>
         </div>
-        <Link href="/jobs/new" className="btn-primary">
-          New Job
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/jobs/batch" className="btn-secondary">
+            Batch Add Jobs
+          </Link>
+          <Link href="/jobs/new" className="btn-primary">
+            New Job
+          </Link>
+        </div>
       </div>
 
       <div className="mt-6 flex flex-wrap gap-3">

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import get_current_user
 from app.db.session import get_db
+from app.models.ai_settings import get_ai_settings
 from app.models.application import TERMINAL_STATUSES, Application, ApplicationStatus
 from app.models.candidate import Candidate
 from app.models.job import Job, JobStatus
@@ -20,7 +21,7 @@ from app.schemas.application import (
     ApplicationUpdate,
     MatchResult,
 )
-from app.services.matching import match_cv_to_job
+from app.services.matching import score_candidate
 from app.services.pagination import paginate_params
 
 router = APIRouter()
@@ -168,11 +169,14 @@ def run_match(
     if not application:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found")
 
-    result = match_cv_to_job(
+    ai_config = get_ai_settings(db)
+    result = score_candidate(
         cv_text=application.candidate.cv_text,
         job_description=application.job.description,
         required_skills=application.job.required_skills,
         preferred_skills=application.job.preferred_skills,
+        job_title=application.job.title,
+        ai_config=ai_config,
     )
 
     application.match_score = result["match_score"]
@@ -186,6 +190,7 @@ def run_match(
         explanation=result["explanation"],
         warning=result["warning"],
         is_saved=True,
+        engine=result["engine"],
     )
 
 

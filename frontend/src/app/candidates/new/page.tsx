@@ -3,14 +3,20 @@
 import { useRouter } from "next/navigation";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import CandidateForm, { CandidateFormValues } from "@/components/CandidateForm";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, apiUpload } from "@/lib/api";
 import type { Candidate } from "@/types";
 
 export default function NewCandidatePage() {
   const router = useRouter();
 
   async function handleSubmit(values: CandidateFormValues) {
-    const candidate = await apiRequest<Candidate>("/candidates", { method: "POST", body: values });
+    const { cv_file, ...body } = values;
+    const candidate = await apiRequest<Candidate>("/candidates", { method: "POST", body });
+    if (cv_file) {
+      const formData = new FormData();
+      formData.append("file", cv_file);
+      await apiUpload<Candidate>(`/candidates/${candidate.id}/cv`, formData);
+    }
     router.push(`/candidates/${candidate.id}`);
   }
 

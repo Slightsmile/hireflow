@@ -18,11 +18,13 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    user_role = postgresql.ENUM("admin", "recruiter", name="user_role")
-    job_status = postgresql.ENUM("draft", "published", "closed", "archived", name="job_status")
-    employment_type = postgresql.ENUM("full_time", "part_time", "contract", "internship", name="employment_type")
+    user_role = postgresql.ENUM("admin", "recruiter", name="user_role", create_type=False)
+    job_status = postgresql.ENUM("draft", "published", "closed", "archived", name="job_status", create_type=False)
+    employment_type = postgresql.ENUM(
+        "full_time", "part_time", "contract", "internship", name="employment_type", create_type=False
+    )
     application_status = postgresql.ENUM(
-        "applied", "shortlisted", "interview", "hired", "rejected", name="application_status"
+        "applied", "shortlisted", "interview", "hired", "rejected", name="application_status", create_type=False
     )
 
     bind = op.get_bind()

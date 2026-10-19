@@ -56,3 +56,4 @@ class MatchResult(BaseModel):
     explanation: str
     warning: str | None = None
     is_saved: bool = False
+    engine: str = "tfidf"

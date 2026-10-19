@@ -30,6 +30,8 @@ class CandidateOut(CandidateBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    cv_filename: str | None = None
+    cv_file_path: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -39,3 +41,13 @@ class CandidateListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class BatchUploadError(BaseModel):
+    filename: str
+    error: str
+
+
+class CandidateBatchResult(BaseModel):
+    created: list[CandidateOut]
+    errors: list[BatchUploadError]

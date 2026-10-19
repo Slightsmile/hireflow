@@ -17,6 +17,8 @@ class Candidate(Base):
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     cv_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cv_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    cv_file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     skills: Mapped[str | None] = mapped_column(Text, nullable=True)
     experience_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

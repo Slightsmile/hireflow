@@ -189,7 +189,12 @@ export default function ApplicationDetailPage() {
 
                 <div className="flex items-center gap-3">
                   <div className="text-3xl font-semibold text-slate-900">{matchResult.match_score}%</div>
-                  <p className="text-sm text-slate-600">{matchResult.explanation}</p>
+                  <div>
+                    <span className="badge bg-slate-100 text-slate-700">
+                      {matchResult.engine === "ai" ? "AI scoring" : "Local TF-IDF"}
+                    </span>
+                    <p className="mt-1 text-sm text-slate-600">{matchResult.explanation}</p>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

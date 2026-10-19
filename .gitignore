@@ -13,6 +13,12 @@ out/
 .env
 .env.local
 
+# Uploads
+backend/uploads/
+
+# Logs
+*.log
+
 # OS
 .DS_Store
 Thumbs.db

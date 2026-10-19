@@ -35,10 +35,16 @@ class Job(Base):
     preferred_skills: Mapped[str | None] = mapped_column(Text, nullable=True)
     experience_level: Mapped[str | None] = mapped_column(String(255), nullable=True)
     employment_type: Mapped[EmploymentType] = mapped_column(
-        Enum(EmploymentType, name="employment_type"), nullable=False, default=EmploymentType.FULL_TIME
+        Enum(EmploymentType, name="employment_type", values_callable=lambda enum_cls: [e.value for e in enum_cls]),
+        nullable=False,
+        default=EmploymentType.FULL_TIME,
     )
     location: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    status: Mapped[JobStatus] = mapped_column(Enum(JobStatus, name="job_status"), nullable=False, default=JobStatus.DRAFT)
+    status: Mapped[JobStatus] = mapped_column(
+        Enum(JobStatus, name="job_status", values_callable=lambda enum_cls: [e.value for e in enum_cls]),
+        nullable=False,
+        default=JobStatus.DRAFT,
+    )
     created_by: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

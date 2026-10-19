@@ -66,3 +66,39 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   return data as T;
 }
+
+export async function apiUpload<T>(path: string, formData: FormData, method = "POST"): Promise<T> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const response = await fetch(`${API_URL}${path}`, { method, headers, body: formData });
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    const message = data?.detail || "An unexpected error occurred";
+    throw new ApiError(response.status, typeof message === "string" ? message : "Request failed");
+  }
+
+  return data as T;
+}
+
+export async function apiDownload(path: string): Promise<{ blob: Blob; filename: string | null }> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const response = await fetch(`${API_URL}${path}`, { headers });
+  if (!response.ok) {
+    throw new ApiError(response.status, "Unable to download this file");
+  }
+
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  return { blob: await response.blob(), filename: match ? match[1] : null };
+}

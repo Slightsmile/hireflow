@@ -29,7 +29,13 @@ class Application(Base):
     candidate_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("candidates.id"), nullable=False)
     job_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("jobs.id"), nullable=False)
     status: Mapped[ApplicationStatus] = mapped_column(
-        Enum(ApplicationStatus, name="application_status"), nullable=False, default=ApplicationStatus.APPLIED
+        Enum(
+            ApplicationStatus,
+            name="application_status",
+            values_callable=lambda enum_cls: [e.value for e in enum_cls],
+        ),
+        nullable=False,
+        default=ApplicationStatus.APPLIED,
     )
     match_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     match_explanation: Mapped[str | None] = mapped_column(Text, nullable=True)

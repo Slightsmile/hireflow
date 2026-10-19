@@ -33,6 +33,8 @@ export interface Candidate {
   email: string;
   phone: string | null;
   cv_text: string | null;
+  cv_filename: string | null;
+  cv_file_path: string | null;
   skills: string | null;
   experience_summary: string | null;
   created_at: string;
@@ -65,6 +67,7 @@ export interface MatchResult {
   explanation: string;
   warning: string | null;
   is_saved: boolean;
+  engine: string;
 }
 
 export interface PaginatedResponse<T> {
@@ -81,4 +84,67 @@ export interface DashboardStats {
   total_applications: number;
   applications_awaiting_review: number;
   status_counts: Record<string, number>;
+}
+
+export type AIProvider = "openai" | "anthropic" | "gemini";
+
+export interface AISettings {
+  provider: AIProvider;
+  model: string | null;
+  base_url: string | null;
+  enabled: boolean;
+  has_api_key: boolean;
+  api_key_masked: string | null;
+  updated_at: string | null;
+}
+
+export interface AISettingsUpdate {
+  provider?: AIProvider;
+  api_key?: string;
+  model?: string;
+  base_url?: string;
+  clear_api_key?: boolean;
+}
+
+export interface AISettingsTestResult {
+  ok: boolean;
+  message: string;
+}
+
+export interface BatchUploadError {
+  filename: string;
+  error: string;
+}
+
+export interface CandidateBatchResult {
+  created: Candidate[];
+  errors: BatchUploadError[];
+}
+
+export interface JobBatchRowError {
+  row: number;
+  error: string;
+}
+
+export interface JobBatchResult {
+  created: Job[];
+  errors: JobBatchRowError[];
+}
+
+export interface JobMatchItem {
+  candidate_id: string;
+  full_name: string;
+  email: string;
+  match_score: number;
+  matched_skills: string[];
+  missing_skills: string[];
+  explanation: string;
+  warning: string | null;
+  engine: string;
+}
+
+export interface JobMatchResponse {
+  engine: string;
+  items: JobMatchItem[];
+  total_scored: number;
 }

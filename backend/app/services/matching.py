@@ -17,6 +17,8 @@ import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+from app.services.ai import AIError, score_cv_with_ai
+
 MIN_CV_LENGTH = 30
 
 
@@ -100,3 +102,37 @@ def match_cv_to_job(
         "explanation": explanation,
         "warning": warning,
     }
+
+
+def score_candidate(
+    cv_text: str | None,
+    job_description: str,
+    required_skills: str | None,
+    preferred_skills: str | None = None,
+    job_title: str = "",
+    ai_config=None,
+) -> dict:
+    """Score one candidate against a job.
+
+    Uses the configured AI provider when available, otherwise (or if the provider
+    call fails) falls back to the deterministic TF-IDF matcher. The returned dict
+    always includes an ``engine`` key: ``"ai"`` or ``"tfidf"``.
+    """
+    if ai_config is not None and getattr(ai_config, "api_key", None):
+        try:
+            result = score_cv_with_ai(
+                cv_text=cv_text,
+                job_title=job_title,
+                job_description=job_description,
+                required_skills=required_skills,
+                preferred_skills=preferred_skills,
+                config=ai_config,
+            )
+            result["engine"] = "ai"
+            return result
+        except AIError:
+            pass
+
+    result = match_cv_to_job(cv_text, job_description, required_skills, preferred_skills)
+    result["engine"] = "tfidf"
+    return result

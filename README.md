@@ -22,13 +22,22 @@ well a candidate's CV matches a job's requirements.
   breakdown, recent applications).
 - Full CRUD for job openings, with search, status/department filters, and pagination.
 - Job workflow actions: publish, close, archive.
-- Full CRUD for candidate profiles, with search and pagination, including pasted CV
-  text storage.
 - Application management linking a candidate to a job, with status transitions
   (`applied → shortlisted → interview → hired/rejected`), recruiter notes, and
   duplicate/closed-job protection.
-- AI-powered CV-to-job match scoring (TF-IDF + cosine similarity + skill coverage),
-  with an explainable breakdown of matched/missing skills.
+- Full CRUD for candidate profiles, with search and pagination, including pasted CV
+  text and PDF CV upload (the PDF text is extracted for matching and the original file
+  is stored for download).
+- Batch import: upload many CV PDFs at once to create candidates, and import many jobs
+  from a CSV file, with per-file/per-row error reporting.
+- Admin Settings page where an administrator stores the AI provider API key used for
+  matching (the key is never returned to the browser).
+- AI-powered CV-to-job match scoring: uses the configured AI provider
+  (OpenAI-compatible, Anthropic, or Gemini) with an explainable breakdown of
+  matched/missing skills, and falls back to the built-in TF-IDF + cosine similarity +
+  skill-coverage scorer when no API key is set.
+- "Top 10 matches" for a job: score a selected set of candidates (or all of them) and
+  rank the best 10 by score.
 - Consistent loading, empty, error, and confirmation states across the UI.
 
 ## 3. Technology Stack
@@ -43,8 +52,10 @@ instance).
 
 **Auth:** JWT bearer tokens (`python-jose`), password hashing with `bcrypt`.
 
-**AI/ML:** TF-IDF vectorization + cosine similarity (`scikit-learn`) blended with
-explicit required-skill coverage.
+**AI/ML:** Admin-configurable AI provider (OpenAI-compatible, Anthropic, or Gemini)
+called over HTTP (`httpx`), with a fallback TF-IDF vectorization + cosine similarity
+(`scikit-learn`) blended with explicit required-skill coverage. PDF CVs are parsed with
+`pypdf`.
 
 **Testing:** Pytest + FastAPI `TestClient`, running against an in-memory SQLite
 database.
@@ -56,21 +67,24 @@ frontend/ (Next.js, port 3000)
    │  REST calls, JSON, Bearer token in Authorization header
    ▼
 backend/ (FastAPI, port 8000)
-   │  /api/v1/{auth,dashboard,jobs,candidates,applications,users}
+   │  /api/v1/{auth,dashboard,jobs,candidates,applications,users,settings}
    │  SQLAlchemy ORM
    ▼
 PostgreSQL (via Alembic-managed schema)
 ```
 
+- Uploaded CV PDFs are stored under `backend/uploads/cv/` (configurable via
+  `UPLOAD_DIR`) and served back through an authenticated download endpoint.
 - The frontend never talks to the database directly; all data access goes through
   the versioned REST API.
 - Authorization is enforced in FastAPI dependencies (`get_current_user`,
   `require_admin`), not just hidden in the UI — directly calling a protected endpoint
   without a valid token, or calling an admin endpoint as a recruiter, is rejected by
   the backend.
-- The matching logic lives in `backend/app/services/matching.py` and is invoked from
-  the `applications` router; it has no external dependencies beyond `scikit-learn`
-  and runs entirely locally.
+- The matching logic lives in `backend/app/services/matching.py` (`score_candidate`)
+  and is invoked from the `applications` router and the job "Top Matches" endpoint. It
+  calls the configured AI provider (`backend/app/services/ai.py`) when an API key is
+  saved, and otherwise falls back to the local TF-IDF scorer.
 
 ## 5. Database Relationships
 
@@ -80,9 +94,14 @@ PostgreSQL (via Alembic-managed schema)
 - `applications` has a **unique constraint on `(candidate_id, job_id)`** — a candidate
   cannot apply twice to the same job.
 - `applications.match_score` has a check constraint restricting it to `0–100`.
+- `ai_settings` is a single-row table holding the admin-configured AI provider, model,
+  base URL, and API key used for matching.
+- `candidates` carries the uploaded CV file's original name (`cv_filename`) and its
+  stored path (`cv_file_path`) alongside the extracted `cv_text`.
 
 See `backend/app/models/` for the SQLAlchemy models and
-`backend/alembic/versions/0001_initial_schema.py` for the schema migration.
+`backend/alembic/versions/` for the schema migrations (`0001` initial schema, `0002` AI
+settings and candidate CV files).
 
 ## 6. Installing Dependencies
 
@@ -123,6 +142,8 @@ cp frontend/.env.example frontend/.env.local
 | `SECRET_KEY` | Secret used to sign JWTs. Generate a long random string for production. |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT expiry window. |
 | `CORS_ORIGINS` | Comma-separated list of allowed frontend origins. |
+| `UPLOAD_DIR` | Directory where uploaded CV PDFs are stored (default `uploads`). |
+| `MAX_UPLOAD_MB` | Maximum upload size in MB for CV PDFs and CSV imports (default `10`). |
 
 **`frontend/.env.local`**
 
@@ -179,9 +200,11 @@ cd backend
 pytest -q
 ```
 
-21 tests cover authentication, authorization, job CRUD and validation, candidate and
-application business rules (duplicate prevention, closed-job rejection, terminal
-status enforcement), and the AI matching service.
+35 tests cover authentication, authorization, job CRUD and validation, candidate and
+application business rules (duplicate prevention, closed-job rejection, terminal status
+enforcement), CV PDF upload and batch import, admin AI settings (including that the raw
+key is never returned), job CSV batch import, the Top Matches endpoint, and the AI
+matching service.
 
 ## 11. Demo Account
 
@@ -191,7 +214,17 @@ If you run the seed script (`python -m app.scripts.seed`), you can log in with:
 
 ## 12. How the Matching Algorithm Works
 
-Implemented in `backend/app/services/matching.py`:
+Scoring is dispatched by `score_candidate` in `backend/app/services/matching.py`, which
+uses one of two engines:
+
+- **AI scoring** (`backend/app/services/ai.py`) when an administrator has saved an API
+  key on the Settings page. The CV and job requirements are sent to the configured
+  provider (OpenAI-compatible chat completions, Anthropic messages, or Gemini
+  `generateContent`), which must return a JSON object with `match_score`,
+  `matched_skills`, `missing_skills`, and `explanation`. If the provider errors, the
+  request times out, or the response cannot be parsed, matching silently falls back to
+  the local scorer below.
+- **Local scoring** (the built-in fallback) works as follows:
 
 1. **Normalize** CV text and job text — lowercase, strip punctuation (keeping `+`, `#`,
    `.` so terms like `C++`, `C#`, and version numbers survive).
@@ -209,8 +242,23 @@ Implemented in `backend/app/services/matching.py`:
    and a **warning** if the CV text is too short (`< 30` characters) to be reliably
    scored.
 
+Every response includes the `engine` (`"ai"` or `"tfidf"`) so the UI can show which
+one produced the score.
+
 The API never auto-rejects an applicant based on this score — it is exposed purely
 as decision support in the application detail page, with an explicit UI disclaimer.
+
+## 12a. Configuring AI Matching (Settings)
+
+An administrator opens **Settings**, picks a provider, pastes the API key, and
+optionally sets a model and base URL. The key is stored server-side and is never
+returned to the browser (only a masked hint of it is). The **Test Connection** button
+verifies the provider responds with a valid score. Without a saved key, all matching
+uses the local TF-IDF scorer.
+
+The job detail page's **Top Matches** card lets a recruiter select candidates (or score
+all of them) and ranks the best 10. To limit provider cost, at most 50 candidates are
+scored per request and the best 10 returned.
 
 ## 13. How the AI/ML Feature Was Evaluated
 
@@ -245,6 +293,12 @@ rather than a scored benchmark model.
 - **Short or sparse CVs** reduce reliability; the system surfaces a warning but does
   not block the analysis.
 
+When AI scoring is enabled these TF-IDF-specific quirks largely do not apply (the model
+reads the CV semantically), but AI mode adds its own trade-offs: results are
+non-deterministic, they depend on provider availability and network latency, each
+candidate costs one provider call, and scoring is skipped entirely (falling back to the
+local scorer) if the key is missing or the provider returns an unparseable response.
+
 Because of these limitations, the score is explicitly presented as **decision
 support, not a measure of candidate ability**, and the system does not auto-reject
 applicants based on it.
@@ -255,8 +309,14 @@ applicants based on it.
   there is no server-side token revocation/blacklist in this version.
 - CSV export, interview scheduling, and email notifications (Priority 3 in the spec)
   are not implemented.
-- CV upload is limited to pasted text; PDF/file upload parsing is not implemented in
-  this version.
+- CV upload supports PDF files (parsed with `pypdf`); scanned/image-only PDFs and other
+  file formats are not supported.
+- The AI provider API key is stored in plain text in the database; it is masked in API
+  responses but not encrypted at rest.
+- Batch CV import derives the candidate name/email/phone from the PDF text heuristically;
+  files without a detectable email are saved with a placeholder email to be edited later.
+- Only candidates present in HireFlow can be scored; there is no import from external
+  sourcing systems.
 - CSRF protection is not required because the API uses a `Bearer` token in the
   `Authorization` header (not cookies) for state-changing requests, which is not
   vulnerable to classic CSRF.

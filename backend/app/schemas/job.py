@@ -48,3 +48,36 @@ class JobListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class JobBatchRowError(BaseModel):
+    row: int
+    error: str
+
+
+class JobBatchResult(BaseModel):
+    created: list[JobOut]
+    errors: list[JobBatchRowError]
+
+
+class JobMatchRequest(BaseModel):
+    candidate_ids: list[uuid.UUID] = []
+    limit: int = Field(default=10, ge=1, le=50)
+
+
+class JobMatchItem(BaseModel):
+    candidate_id: uuid.UUID
+    full_name: str
+    email: str
+    match_score: int
+    matched_skills: list[str]
+    missing_skills: list[str]
+    explanation: str
+    warning: str | None = None
+    engine: str
+
+
+class JobMatchResponse(BaseModel):
+    engine: str
+    items: list[JobMatchItem]
+    total_scored: int

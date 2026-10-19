@@ -15,7 +15,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
 
-  const navItems = user?.role === "admin" ? [...NAV_ITEMS, { href: "/users", label: "Users" }] : NAV_ITEMS;
+  const navItems =
+    user?.role === "admin"
+      ? [...NAV_ITEMS, { href: "/users", label: "Users" }, { href: "/settings", label: "Settings" }]
+      : NAV_ITEMS;
 
   return (
     <div className="flex min-h-screen">
