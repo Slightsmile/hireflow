@@ -248,7 +248,7 @@ one produced the score.
 The API never auto-rejects an applicant based on this score — it is exposed purely
 as decision support in the application detail page, with an explicit UI disclaimer.
 
-## 12a. Configuring AI Matching (Settings)
+### Configuring AI Matching (Settings)
 
 An administrator opens **Settings**, picks a provider, pastes the API key, and
 optionally sets a model and base URL. The key is stored server-side and is never
@@ -303,7 +303,81 @@ Because of these limitations, the score is explicitly presented as **decision
 support, not a measure of candidate ability**, and the system does not auto-reject
 applicants based on it.
 
-## 14. Known Limitations
+## 14. API Reference
+
+All routes are under `/api/v1` and require a Bearer token, except register, login, and
+logout.
+
+**Auth**
+- `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`
+
+**Dashboard**
+- `GET /dashboard/stats`, `GET /dashboard/recent-applications`
+
+**Jobs**
+- `GET /jobs`, `POST /jobs`
+- `GET /jobs/{job_id}`, `PATCH /jobs/{job_id}`, `DELETE /jobs/{job_id}`
+- `POST /jobs/batch` — import jobs from a CSV file (multipart `file`)
+- `GET /jobs/batch/template` — download a CSV template
+- `POST /jobs/{job_id}/matches` — score candidates and return the top 10
+
+**Candidates**
+- `GET /candidates`, `POST /candidates`
+- `POST /candidates/batch` — import candidates from CV PDFs (multipart `files`)
+- `GET /candidates/{candidate_id}`, `PATCH /candidates/{candidate_id}`,
+  `DELETE /candidates/{candidate_id}`
+- `POST /candidates/{candidate_id}/cv` — upload a CV PDF (multipart `file`)
+- `GET /candidates/{candidate_id}/cv` — download the stored CV PDF
+
+**Applications**
+- `GET /applications`, `POST /applications`
+- `GET /applications/{application_id}`, `PATCH /applications/{application_id}`,
+  `DELETE /applications/{application_id}`
+- `PATCH /applications/{application_id}/status`
+- `POST /applications/{application_id}/match`, `GET /applications/{application_id}/match`
+
+**Users** (admin only)
+- `GET /users`
+
+**Settings** (admin only)
+- `GET /settings/ai`, `PUT /settings/ai`, `POST /settings/ai/test`
+
+## 15. Frontend Pages
+
+| Route | Purpose |
+|---|---|
+| `/login`, `/register` | Authentication |
+| `/dashboard` | Statistics, status breakdown, recent applications |
+| `/jobs`, `/jobs/new`, `/jobs/[id]`, `/jobs/[id]/edit` | Job CRUD, workflow actions, top-10 matches |
+| `/jobs/batch` | Import jobs from a CSV file |
+| `/candidates`, `/candidates/new`, `/candidates/[id]`, `/candidates/[id]/edit` | Candidate CRUD, CV text and PDF upload/download |
+| `/candidates/batch` | Batch import candidates from CV PDFs |
+| `/applications`, `/applications/new`, `/applications/[id]` | Applications, status updates, notes, AI match |
+| `/users` (admin) | User list |
+| `/settings` (admin) | AI provider configuration |
+
+## 16. Project Structure
+
+```
+backend/
+  app/
+    api/v1/          # routers: auth, dashboard, jobs, candidates, applications, users, settings
+    core/            # config and auth dependencies
+    db/              # engine, session, GUID type
+    models/          # SQLAlchemy models
+    schemas/         # Pydantic request/response models
+    services/        # matching, ai, pdf, storage, pagination
+    scripts/seed.py  # sample data
+  alembic/versions/  # migrations (0001 initial, 0002 AI settings + candidate CV files)
+  tests/             # pytest suite (in-memory SQLite)
+frontend/
+  src/app/           # Next.js App Router pages
+  src/components/    # shared UI (forms, dialogs, states, app shell)
+  src/lib/           # API client and auth context
+  src/types/         # shared TypeScript types
+```
+
+## 17. Known Limitations
 
 - Logout is a client-side token discard; because authentication uses stateless JWTs,
   there is no server-side token revocation/blacklist in this version.
